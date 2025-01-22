@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rice Leaf Disease Detection</title>
+    <style>
+        :root {
+            --primary-green: #2F5233;
+            --light-green: #8FB996;
+            --accent-green: #4C9F70;
+            --bg-green: #F0F7F4;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: var(--bg-green);
+            color: var(--primary-green);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            padding: 20px 0;
+            margin-bottom: 40px;
+            background: linear-gradient(135deg, var(--primary-green), var(--accent-green));
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            color: white;
+            margin: 0;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 30px;
+        }
+
+        .upload-section {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .upload-box {
+            border: 3px dashed var(--light-green);
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .upload-box:hover {
+            border-color: var(--accent-green);
+            background-color: rgba(143, 185, 150, 0.1);
+        }
+
+        .instructions {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin-top: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .history-section {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .preview-image {
+            max-width: 100%;
+            max-height: 300px;
+            margin: 20px 0;
+            display: none;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        button {
+            background-color: var(--accent-green);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: var(--primary-green);
+        }
+
+        .error-message {
+            color: red;
+            margin-top: 10px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Rice Leaf Disease Detection</h1>
+        </div>
+        
+        <div class="main-content">
+            <div class="left-section">
+                <div class="upload-section">
+                    <form id="uploadForm">
+                        <div class="upload-box" id="dropZone">
+                            <img src="/api/placeholder/64/64" alt="upload icon" />
+                            <h3>Upload Image</h3>
+                            <p>Drag & Drop your files or Browse</p>
+                            <input type="file" id="fileInput" accept="image/*" />
+                            <button type="button" onclick="document.getElementById('fileInput').click()">Select File</button>
+                            <img id="preview" class="preview-image" />
+                            <p id="errorMessage" class="error-message"></p>
+                        </div>
+                    </form>
+                    
+                    <div class="instructions">
+                        <h2>Instructions</h2>
+                        <ul>
+                            <li>Upload a clear photo of rice leaves</li>
+                            <li>Image should be well-lit and in focus</li>
+                            <li>Supported formats: JPG, PNG</li>
+                            <li>Maximum file size: 5MB</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="history-section">
+                <h2>Prediction History</h2>
+                <div id="predictionHistory"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const preview = document.getElementById('preview');
+        const errorMessage = document.getElementById('errorMessage');
+        const predictionHistory = document.getElementById('predictionHistory');
+
+        // Prevent default drag behaviors
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+            document.body.addEventListener(eventName, preventDefaults, false);
+        });
+
+        // Highlight drop zone when item is dragged over it
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, highlight, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, unhighlight, false);
+        });
+
+        // Handle dropped files
+        dropZone.addEventListener('drop', handleDrop, false);
+        fileInput.addEventListener('change', handleFiles, false);
+
+        function preventDefaults (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        function highlight(e) {
+            dropZone.classList.add('hover');
+        }
+
+        function unhighlight(e) {
+            dropZone.classList.remove('hover');
+        }
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleFiles({ target: { files: files } });
+        }
+
+        function handleFiles(e) {
+            const files = e.target.files;
+            if (files.length) {
+                const file = files[0];
+                
+                // Validate file type
+                if (!file.type.match('image.*')) {
+                    showError('Please upload an image file');
+                    return;
+                }
+
+                // Validate file size (5MB)
+                if (file.size > 5 * 1024 * 1024) {
+                    showError('File size should be less than 5MB');
+                    return;
+                }
+
+                // Preview image
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    preview.style.display = 'block';
+                    preview.src = e.target.result;
+                    errorMessage.style.display = 'none';
+                }
+                reader.readAsDataURL(file);
+
+                // Here you would typically send the file to your server
+                // uploadFile(file);
+            }
+        }
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+            preview.style.display = 'none';
+        }
+
+        // Function to upload file to server (to be implemented)
+        function uploadFile(file) {
+            const formData = new FormData();
+            formData.append('image', file);
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Handle response
+                addPredictionToHistory(data);
+            })
+            .catch(error => {
+                showError('Error uploading file');
+                console.error('Error:', error);
+            });
+        }
+
+        function addPredictionToHistory(prediction) {
+            const div = document.createElement('div');
+            div.className = 'prediction-item';
+            div.innerHTML = `
+                <div>
+                    <h4>${prediction.disease}</h4>
+                    <span>${new Date().toLocaleString()}</span>
+                </div>
+                <div class="prediction-status">
+                    <span>${prediction.confidence}%</span>
+                </div>
+            `;
+            predictionHistory.insertBefore(div, predictionHistory.firstChild);
+        }
+    </script>
+</body>
+</html>
