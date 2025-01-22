@@ -149,6 +149,18 @@
                 </form>
             </div>
 
+            <div class="history-section">
+                <h2>Prediction History</h2>
+                <div id="predictionHistory">
+                    {% for prediction in predictions %}
+                        <div class="prediction-item">
+                            <h4>Predicted Disease: {{ prediction.disease_type }}</h4>
+                            <span>Confidence: {{ "%.2f"|format(prediction.confidence) }}%</span>
+                            <span>Timestamp: {{ prediction.prediction_date.strftime('%Y-%m-%d %H:%M:%S') if prediction.prediction_date else 'N/A' }}</span>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
             <div class="instructions">
                 <h2>Instructions</h2>
                 <ul>
@@ -160,18 +172,7 @@
             </div>
         </div>
 
-        <div class="history-section">
-            <h2>Prediction History</h2>
-            <div id="predictionHistory">
-                {% for prediction in predictions %}
-                    <div class="prediction-item">
-                        <h4>Predicted Disease: {{ prediction.disease_type }}</h4>
-                        <span>Confidence: {{ "%.2f"|format(prediction.confidence) }}%</span>
-                        <span>Timestamp: {{ prediction.prediction_date.strftime('%Y-%m-%d %H:%M:%S') if prediction.prediction_date else 'N/A' }}</span>
-                    </div>
-                {% endfor %}
-            </div>
-        </div>
+
     </div>
 
     <script>
