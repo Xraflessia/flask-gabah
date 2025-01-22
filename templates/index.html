@@ -42,6 +42,12 @@
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
         }
 
+        .main-content {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 30px;
+        }
+
         .upload-section {
             background: white;
             padding: 30px;
@@ -63,11 +69,27 @@
             background-color: rgba(143, 185, 150, 0.1);
         }
 
+        .instructions {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin-top: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .history-section {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
         .preview-image {
             max-width: 100%;
             max-height: 300px;
             margin: 20px 0;
             display: none;
+            text-align: center;
         }
 
         #fileInput {
@@ -83,7 +105,6 @@
             cursor: pointer;
             font-weight: 600;
             transition: background-color 0.3s ease;
-            display: none;
         }
 
         button:hover {
@@ -95,6 +116,25 @@
             margin-top: 10px;
             display: none;
         }
+
+        /* Centering image preview */
+        #imagePreviewWrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #predictBtn {
+            display: none;
+            margin-top: 20px;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        #selectFileBtn {
+            display: inline-block;
+        }
     </style>
 </head>
 <body>
@@ -102,91 +142,166 @@
         <div class="header">
             <h1>Rice Leaf Disease Detection</h1>
         </div>
-        <div class="upload-section">
-            <form id="uploadForm">
-                <div class="upload-box" id="dropZone">
-                    <h3>Upload Image</h3>
-                    <p>Drag & Drop your files or Browse</p>
-                    <input type="file" id="fileInput" accept="image/*" />
-                    <button type="button" onclick="document.getElementById('fileInput').click()">Select File</button>
+        
+        <div class="main-content">
+            <div class="left-section">
+                <div class="upload-section">
+                    <form id="uploadForm">
+                        <div class="upload-box" id="dropZone">
+                            <img src="/api/placeholder/64/64" alt="upload icon" />
+                            <h3>Upload Image</h3>
+                            <p>Drag & Drop your files or Browse</p>
+                            <input type="file" id="fileInput" accept="image/*" />
+                            <button type="button" id="selectFileBtn" onclick="document.getElementById('fileInput').click()">Select File</button>
+                            <div id="imagePreviewWrapper">
+                                <img id="preview" class="preview-image" />
+                            </div>
+                            <p id="errorMessage" class="error-message"></p>
+                            <button type="button" id="predictBtn" style="display: none;" onclick="predictDisease()">Predict Disease</button>
+                        </div>
+                    </form>
+                    
+                    <div class="instructions">
+                        <h2>Instructions</h2>
+                        <ul>
+                            <li>Upload a clear photo of rice leaves</li>
+                            <li>Image should be well-lit and in focus</li>
+                            <li>Supported formats: JPG, PNG</li>
+                            <li>Maximum file size: 5MB</li>
+                        </ul>
+                    </div>
                 </div>
-                <img id="preview" class="preview-image" />
-                <button type="button" id="predictButton" onclick="predictDisease()">Predict</button>
-                <p id="errorMessage" class="error-message"></p>
-            </form>
+            </div>
+            
+            <div class="history-section">
+                <h2>Prediction History</h2>
+                <div id="predictionHistory"></div>
+            </div>
         </div>
-        <div id="predictionHistory"></div>
     </div>
 
     <script>
+        const dropZone = document.getElementById('dropZone');
         const fileInput = document.getElementById('fileInput');
         const preview = document.getElementById('preview');
         const errorMessage = document.getElementById('errorMessage');
-        const predictButton = document.getElementById('predictButton');
+        const predictionHistory = document.getElementById('predictionHistory');
+        const predictBtn = document.getElementById('predictBtn');
+        const selectFileBtn = document.getElementById('selectFileBtn');
+        const imagePreviewWrapper = document.getElementById('imagePreviewWrapper');
 
-        fileInput.addEventListener('change', handleFiles);
+        // Prevent default drag behaviors
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+            document.body.addEventListener(eventName, preventDefaults, false);
+        });
 
-        function handleFiles(event) {
-            const file = event.target.files[0];
+        // Highlight drop zone when item is dragged over it
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, highlight, false);
+        });
 
-            if (!file) {
-                showError('No file selected');
-                return;
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, unhighlight, false);
+        });
+
+        // Handle dropped files
+        dropZone.addEventListener('drop', handleDrop, false);
+        fileInput.addEventListener('change', handleFiles, false);
+
+        function preventDefaults (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        function highlight(e) {
+            dropZone.classList.add('hover');
+        }
+
+        function unhighlight(e) {
+            dropZone.classList.remove('hover');
+        }
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleFiles({ target: { files: files } });
+        }
+
+        function handleFiles(e) {
+            const files = e.target.files;
+            if (files.length) {
+                const file = files[0];
+                
+                // Validate file type
+                if (!file.type.match('image.*')) {
+                    showError('Please upload an image file');
+                    return;
+                }
+
+                // Validate file size (5MB)
+                if (file.size > 5 * 1024 * 1024) {
+                    showError('File size should be less than 5MB');
+                    return;
+                }
+
+                // Preview image
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    preview.style.display = 'block';
+                    preview.src = e.target.result;
+                    errorMessage.style.display = 'none';
+                }
+                reader.readAsDataURL(file);
+
+                // Hide Select File button and show Predict button only after image is valid
+                selectFileBtn.style.display = 'none';
+                predictBtn.style.display = 'block';  // Show predict button
             }
-
-            if (!file.type.match('image.*')) {
-                showError('Please upload an image file');
-                return;
-            }
-
-            if (file.size > 5 * 1024 * 1024) {
-                showError('File size should be less than 5MB');
-                return;
-            }
-
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                preview.src = e.target.result;
-                preview.style.display = 'block';
-                errorMessage.style.display = 'none';
-                predictButton.style.display = 'inline-block';
-            };
-            reader.readAsDataURL(file);
         }
 
         function showError(message) {
             errorMessage.textContent = message;
             errorMessage.style.display = 'block';
             preview.style.display = 'none';
-            predictButton.style.display = 'none';
         }
 
+        // Function to send file to Flask for prediction
         function predictDisease() {
             const file = fileInput.files[0];
-            if (!file) {
-                showError('No file selected');
-                return;
-            }
-
             const formData = new FormData();
             formData.append('file', file);
 
             fetch('/predict', {
                 method: 'POST',
-                body: formData,
+                body: formData
             })
-                .then((response) => response.json())
-                .then((data) => {
-                    if (data.error) {
-                        showError(data.error);
-                    } else {
-                        alert(`Prediction: ${data.predicted_class} (Confidence: ${data.probability.toFixed(2)}%)`);
-                    }
-                })
-                .catch((error) => {
-                    showError('Error during prediction');
-                    console.error(error);
-                });
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    showError(data.error);
+                } else {
+                    // Display prediction in the history
+                    displayPrediction(data.predicted_class, data.probability);
+                }
+            })
+            .catch(error => {
+                showError('Error predicting disease');
+                console.error('Error:', error);
+            });
+        }
+
+        function displayPrediction(predictedClass, probability) {
+            const div = document.createElement('div');
+            div.className = 'prediction-item';
+            div.innerHTML = ` 
+                <div>
+                    <h4>Predicted Disease: ${predictedClass}</h4>
+                    <span>Confidence: ${probability.toFixed(2)}%</span>
+                    <span>Timestamp: ${new Date().toLocaleString()}</span>
+                </div>
+            `;
+            predictionHistory.insertBefore(div, predictionHistory.firstChild);
         }
     </script>
 </body>
