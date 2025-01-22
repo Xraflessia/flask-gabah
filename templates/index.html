@@ -228,8 +228,8 @@
                 }
                 reader.readAsDataURL(file);
 
-                // Here you would typically send the file to your server
-                // uploadFile(file);
+                // Call Flask predict function
+                predictDisease(file);
             }
         }
 
@@ -239,36 +239,38 @@
             preview.style.display = 'none';
         }
 
-        // Function to upload file to server (to be implemented)
-        function uploadFile(file) {
+        // Function to send file to Flask for prediction
+        function predictDisease(file) {
             const formData = new FormData();
-            formData.append('image', file);
+            formData.append('file', file);
 
-            fetch('/upload', {
+            fetch('/predict', {
                 method: 'POST',
                 body: formData
             })
             .then(response => response.json())
             .then(data => {
-                // Handle response
-                addPredictionToHistory(data);
+                if (data.error) {
+                    showError(data.error);
+                } else {
+                    // Display prediction in the history
+                    displayPrediction(data.predicted_class, data.probability);
+                }
             })
             .catch(error => {
-                showError('Error uploading file');
+                showError('Error predicting disease');
                 console.error('Error:', error);
             });
         }
 
-        function addPredictionToHistory(prediction) {
+        function displayPrediction(predictedClass, probability) {
             const div = document.createElement('div');
             div.className = 'prediction-item';
             div.innerHTML = `
                 <div>
-                    <h4>${prediction.disease}</h4>
-                    <span>${new Date().toLocaleString()}</span>
-                </div>
-                <div class="prediction-status">
-                    <span>${prediction.confidence}%</span>
+                    <h4>Predicted Disease: ${predictedClass}</h4>
+                    <span>Confidence: ${probability.toFixed(2)}%</span>
+                    <span>Timestamp: ${new Date().toLocaleString()}</span>
                 </div>
             `;
             predictionHistory.insertBefore(div, predictionHistory.firstChild);
