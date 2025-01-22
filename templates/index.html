@@ -135,6 +135,24 @@
         #selectFileBtn {
             display: inline-block;
         }
+
+        .prediction-item {
+            background-color: var(--light-green);
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 10px;
+        }
+
+        .prediction-item h4 {
+            margin: 0;
+            font-size: 1.1em;
+        }
+
+        .prediction-item span {
+            display: block;
+            margin-top: 5px;
+            color: var(--primary-green);
+        }
     </style>
 </head>
 <body>
@@ -175,7 +193,15 @@
             
             <div class="history-section">
                 <h2>Prediction History</h2>
-                <div id="predictionHistory"></div>
+                <div id="predictionHistory">
+                    {% for prediction in predictions %}
+                        <div class="prediction-item">
+                            <h4>Predicted Disease: {{ prediction.disease_type }}</h4>
+                            <span>Confidence: {{ prediction.confidence }}%</span>
+                            <span>Timestamp: {{ prediction.prediction_date }}</span>
+                        </div>
+                    {% endfor %}
+                </div>
             </div>
         </div>
     </div>
